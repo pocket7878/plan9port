@@ -670,16 +670,24 @@ texttype(Text *t, Rune r)
 	nr = 1;
 	rp = &r;
 	switch(r){
+        case 0x02: // ^B emacs like left
 	case Kleft:
 		typecommit(t);
 		if(t->q0 > 0)
 			textshow(t, t->q0-1, t->q0-1, TRUE);
 		return;
+        case 0x06: // ^F emacs like right
 	case Kright:
 		typecommit(t);
 		if(t->q1 < t->file->b.nc)
 			textshow(t, t->q1+1, t->q1+1, TRUE);
 		return;
+        case 0x0e: // ^N emacs like cursor next
+                n = 1;
+                goto case_Down;
+        case 0x10: // ^P emacs like cursor up
+                n = 1;
+                goto case_Up;
 	case Kdown:
 		if(t->what == Tag)
 			goto Tagdown;
@@ -810,7 +818,7 @@ texttype(Text *t, Rune r)
 	}
 	textshow(t, t->q0, t->q0, 1);
 	switch(r){
-	case 0x06:	/* ^F: complete */
+	case 0x18:	/* ^X: complete */
 	case Kins:
 		typecommit(t);
 		rp = textcomplete(t);
