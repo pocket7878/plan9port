@@ -1,5 +1,5 @@
 .\" 10/22/92 activate next line before installing
-.pi /usr/local/plan9/bin/auxpm
+.pi /Users/masato/Documents/Pocket7878/plan9port/bin/auxpm
 .
 .		\" IZ - initialization
 .de IZ
@@ -963,4 +963,4 @@ Naperville, Illinois 60540
 ..
 .IZ
 .rm IZ
-.so /usr/local/plan9/tmac/tmac.srefs
+.so /Users/masato/Documents/Pocket7878/plan9port/tmac/tmac.srefs
