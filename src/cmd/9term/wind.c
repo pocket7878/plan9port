@@ -344,12 +344,14 @@ winctl(void *arg)
 				switch(*bp){
 				case 0:
 					break;
-				case '\b':
-					if(up == rp)
-						initial++;
-					else
-						--up;
-					break;
+                                case '\a':
+                                        break;
+                                case '\b':
+                                        if(up == rp)
+                                          initial++;
+                                        else
+                                          --up;
+                                        break;
 				case '\r':
 					while(i<nr-1 && *(bp+1) == '\r'){
 						bp++;
