@@ -23,10 +23,7 @@ long	modified = 0;		/* strange lookahead for menus */
 char	hostlock = 1;
 char	hasunlocked = 0;
 int	maxtab = 8;
-int	chord;
 int	autoindent;
-
-#define chording 0	/* code here for reference but it causes deadlocks */
 
 void
 notifyf(void *a, char *msg)
@@ -39,7 +36,7 @@ notifyf(void *a, char *msg)
 void
 threadmain(int argc, char *argv[])
 {
-	int i, got, scr, w;
+	int i, got, scr, chord;
 	Text *t;
 	Rectangle r;
 	Flayer *nwhich;
@@ -84,6 +81,7 @@ threadmain(int argc, char *argv[])
 	startnewfile(Tstartcmdfile, &cmd);
 
 	got = 0;
+	chord = 0;
 	if(protodebug) print("loop\n");
 	for(;;got = waitforio()){
 		if(hasunlocked && RESIZED())
@@ -108,14 +106,27 @@ threadmain(int argc, char *argv[])
 				continue;
 			}
 			nwhich = flwhich(mousep->xy);
-			scr = which && ptinrect(mousep->xy, which->scroll);
+			scr = which && (ptinrect(mousep->xy, which->scroll) ||
+				mousep->buttons&(8|16));
 			if(mousep->buttons)
 				flushtyping(1);
-			if(chording && chord==1 && !mousep->buttons)
+			if((mousep->buttons&1)==0)
 				chord = 0;
-			if(chording && chord)
+			if(chord && which && which==nwhich){
 				chord |= mousep->buttons;
-			else if(mousep->buttons&1){
+				t = (Text *)which->user1;
+				if(!t->lock){
+					int w = which-t->l;
+					if(chord&2){
+						cut(t, w, 1, 1);
+						chord &= ~2;
+					}
+					if(chord&4){
+						paste(t, w);
+						chord &= ~4;
+					}
+				}
+			}else if(mousep->buttons&(1|8)){
 				if(nwhich){
 					if(nwhich!=which)
 						current(nwhich);
@@ -137,26 +148,13 @@ threadmain(int argc, char *argv[])
 					scroll(which, 2);
 				else
 					menu2hit();
-			}else if((mousep->buttons&4)){
+			}else if(mousep->buttons&(4|16)){
 				if(scr)
 					scroll(which, 3);
 				else
 					menu3hit();
 			}
 			mouseunblock();
-		}
-		if(chording && chord){
-			t = (Text*)which->user1;
-			if(!t->lock && !hostlock){
-				w = which-t->l;
-				if(chord&2){
-					cut(t, w, 1, 1);
-					chord &= ~2;
-				}else if(chord&4){
-					paste(t, w);
-					chord &= ~4;
-				}
-			}
 		}
 	}
 }
