@@ -1,0 +1,137 @@
+diff -r d82a86de23fa src/cmd/sam/xec.c
+--- a/src/cmd/sam/xec.c	Mon Oct 22 12:32:31 2012 -0400
++++ b/src/cmd/sam/xec.c	Mon Nov 05 01:03:36 2012 -0500
+@@ -277,6 +277,7 @@
+ 	else
+ 		while(n++ && undo(FALSE))
+ 			;
++	moveto(f, f->dot.r);
+ 	return TRUE;
+ }
+ 
+diff -r d82a86de23fa src/cmd/samterm/flayer.c
+--- a/src/cmd/samterm/flayer.c	Mon Oct 22 12:32:31 2012 -0400
++++ b/src/cmd/samterm/flayer.c	Mon Nov 05 01:03:36 2012 -0500
+@@ -253,21 +253,18 @@
+ int
+ flselect(Flayer *l)
+ {
+-	int ret;
+ 	if(l->visible!=All)
+ 		flupfront(l);
++	if(l->f.p0==l->f.p1)
++		if(mousep->msec-l->click<Clicktime && l->f.p0+l->origin==l->p0 && 
++			l->f.p0==frcharofpt(&l->f, mousep->xy)){
++			l->click = 0;
++			return 1;
++		}
++	l->click = mousep->msec;
+ 	frselect(&l->f, mousectl);
+-	ret = 0;
+-	if(l->f.p0==l->f.p1){
+-		if(mousep->msec-l->click<Clicktime && l->f.p0+l->origin==l->p0){
+-			ret = 1;
+-			l->click = 0;
+-		}else
+-			l->click = mousep->msec;
+-	}else
+-		l->click = 0;
+ 	l->p0 = l->f.p0+l->origin, l->p1 = l->f.p1+l->origin;
+-	return ret;
++	return 0;
+ }
+ 
+ void
+diff -r d82a86de23fa src/cmd/samterm/main.c
+--- a/src/cmd/samterm/main.c	Mon Oct 22 12:32:31 2012 -0400
++++ b/src/cmd/samterm/main.c	Mon Nov 05 01:03:36 2012 -0500
+@@ -23,11 +23,8 @@
+ char	hostlock = 1;
+ char	hasunlocked = 0;
+ int	maxtab = 8;
+-int	chord;
+ int	autoindent;
+ 
+-#define chording 0	/* code here for reference but it causes deadlocks */
+-
+ void
+ notifyf(void *a, char *msg)
+ {
+@@ -39,7 +36,7 @@
+ void
+ threadmain(int argc, char *argv[])
+ {
+-	int i, got, scr, w;
++	int i, got, scr, chord;
+ 	Text *t;
+ 	Rectangle r;
+ 	Flayer *nwhich;
+@@ -84,6 +81,7 @@
+ 	startnewfile(Tstartcmdfile, &cmd);
+ 
+ 	got = 0;
++	chord = 0;
+ 	if(protodebug) print("loop\n");
+ 	for(;;got = waitforio()){
+ 		if(hasunlocked && RESIZED())
+@@ -108,14 +106,27 @@
+ 				continue;
+ 			}
+ 			nwhich = flwhich(mousep->xy);
+-			scr = which && ptinrect(mousep->xy, which->scroll);
++			scr = which && (ptinrect(mousep->xy, which->scroll) ||
++				mousep->buttons&(8|16));
+ 			if(mousep->buttons)
+ 				flushtyping(1);
+-			if(chording && chord==1 && !mousep->buttons)
++			if((mousep->buttons&1)==0)
+ 				chord = 0;
+-			if(chording && chord)
++			if(chord && which && which==nwhich){
+ 				chord |= mousep->buttons;
+-			else if(mousep->buttons&1){
++				t = (Text *)which->user1;
++				if(!t->lock){
++					int w = which-t->l;
++					if(chord&2){
++						cut(t, w, 1, 1);
++						chord &= ~2;
++					}
++					if(chord&4){
++						paste(t, w);
++						chord &= ~4;
++					}
++				}
++			}else if(mousep->buttons&(1|8)){
+ 				if(nwhich){
+ 					if(nwhich!=which)
+ 						current(nwhich);
+@@ -137,7 +148,7 @@
+ 					scroll(which, 2);
+ 				else
+ 					menu2hit();
+-			}else if((mousep->buttons&4)){
++			}else if(mousep->buttons&(4|16)){
+ 				if(scr)
+ 					scroll(which, 3);
+ 				else
+@@ -145,19 +156,6 @@
+ 			}
+ 			mouseunblock();
+ 		}
+-		if(chording && chord){
+-			t = (Text*)which->user1;
+-			if(!t->lock && !hostlock){
+-				w = which-t->l;
+-				if(chord&2){
+-					cut(t, w, 1, 1);
+-					chord &= ~2;
+-				}else if(chord&4){
+-					paste(t, w);
+-					chord &= ~4;
+-				}
+-			}
+-		}
+ 	}
+ }
+ 
