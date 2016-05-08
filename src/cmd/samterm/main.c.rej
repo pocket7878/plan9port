@@ -1,0 +1,144 @@
+***************
+*** 23,33 ****
+  char	hostlock = 1;
+  char	hasunlocked = 0;
+  int	maxtab = 8;
+- int	chord;
+  int	autoindent;
+  
+- #define chording 0	/* code here for reference but it causes deadlocks */
+- 
+  void
+  notifyf(void *a, char *msg)
+  {
+--- 23,30 ----
+  char	hostlock = 1;
+  char	hasunlocked = 0;
+  int	maxtab = 8;
+  int	autoindent;
+  
+  void
+  notifyf(void *a, char *msg)
+  {
+***************
+*** 39,45 ****
+  void
+  threadmain(int argc, char *argv[])
+  {
+- 	int i, got, scr, w;
+  	Text *t;
+  	Rectangle r;
+  	Flayer *nwhich;
+--- 36,42 ----
+  void
+  threadmain(int argc, char *argv[])
+  {
++ 	int i, got, scr, chord;
+  	Text *t;
+  	Rectangle r;
+  	Flayer *nwhich;
+***************
+*** 84,89 ****
+  	startnewfile(Tstartcmdfile, &cmd);
+  
+  	got = 0;
+  	if(protodebug) print("loop\n");
+  	for(;;got = waitforio()){
+  		if(hasunlocked && RESIZED())
+--- 81,87 ----
+  	startnewfile(Tstartcmdfile, &cmd);
+  
+  	got = 0;
++ 	chord = 0;
+  	if(protodebug) print("loop\n");
+  	for(;;got = waitforio()){
+  		if(hasunlocked && RESIZED())
+***************
+*** 108,121 ****
+  				continue;
+  			}
+  			nwhich = flwhich(mousep->xy);
+- 			scr = which && ptinrect(mousep->xy, which->scroll);
+  			if(mousep->buttons)
+  				flushtyping(1);
+- 			if(chording && chord==1 && !mousep->buttons)
+  				chord = 0;
+- 			if(chording && chord)
+  				chord |= mousep->buttons;
+- 			else if(mousep->buttons&1){
+  				if(nwhich){
+  					if(nwhich!=which)
+  						current(nwhich);
+--- 106,132 ----
+  				continue;
+  			}
+  			nwhich = flwhich(mousep->xy);
++ 			scr = which && (ptinrect(mousep->xy, which->scroll) ||
++ 				mousep->buttons&(8|16));
+  			if(mousep->buttons)
+  				flushtyping(1);
++ 			if((mousep->buttons&1)==0)
+  				chord = 0;
++ 			if(chord && which && which==nwhich){
+  				chord |= mousep->buttons;
++ 				t = (Text *)which->user1;
++ 				if(!t->lock){
++ 					int w = which-t->l;
++ 					if(chord&2){
++ 						cut(t, w, 1, 1);
++ 						chord &= ~2;
++ 					}
++ 					if(chord&4){
++ 						paste(t, w);
++ 						chord &= ~4;
++ 					}
++ 				}
++ 			}else if(mousep->buttons&(1|8)){
+  				if(nwhich){
+  					if(nwhich!=which)
+  						current(nwhich);
+***************
+*** 137,143 ****
+  					scroll(which, 2);
+  				else
+  					menu2hit();
+- 			}else if((mousep->buttons&4)){
+  				if(scr)
+  					scroll(which, 3);
+  				else
+--- 148,154 ----
+  					scroll(which, 2);
+  				else
+  					menu2hit();
++ 			}else if(mousep->buttons&(4|16)){
+  				if(scr)
+  					scroll(which, 3);
+  				else
+***************
+*** 145,163 ****
+  			}
+  			mouseunblock();
+  		}
+- 		if(chording && chord){
+- 			t = (Text*)which->user1;
+- 			if(!t->lock && !hostlock){
+- 				w = which-t->l;
+- 				if(chord&2){
+- 					cut(t, w, 1, 1);
+- 					chord &= ~2;
+- 				}else if(chord&4){
+- 					paste(t, w);
+- 					chord &= ~4;
+- 				}
+- 			}
+- 		}
+  	}
+  }
+  
+--- 156,161 ----
+  			}
+  			mouseunblock();
+  		}
+  	}
+  }
+  
